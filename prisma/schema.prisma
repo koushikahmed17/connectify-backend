@@ -1,15 +1,321 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
+// datasource & generator (adjust db url in .env)
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum ReactionType {
+  LIKE
+  LOVE
+  HAHA
+  SAD
+  ANGRY
+  WOW
+}
+
+enum NotificationType {
+  NEW_LIKE
+  NEW_COMMENT
+  NEW_FRIEND_REQUEST
+  FRIEND_REQUEST_ACCEPTED
+  NEW_MESSAGE
+  MENTION
+  FOLLOW
+  SYSTEM
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  AUDIO
+  VIDEO
+  SYSTEM
+}
+
+enum CallType {
+  AUDIO
+  VIDEO
+}
+
+enum CallStatus {
+  RINGING
+  ONGOING
+  ENDED
+  REJECTED
+  MISSED
+}
+
+model User {
+  id              Int       @id @default(autoincrement())
+  email           String    @unique
+  username        String    @unique
+  password        String
+  role            Role      @default(USER)
+  isEmailVerified Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime? // soft delete
+
+  // relations
+  profile            Profile?
+  posts              Post[]
+  sentFriendReqs     FriendRequest[]           @relation("sentRequests")
+  receivedFriendReqs FriendRequest[]           @relation("receivedRequests")
+  friendshipsAsUserA Friendship[]              @relation("userFriendshipA")
+  friendshipsAsUserB Friendship[]              @relation("userFriendshipB")
+  notifications      Notification[]            @relation("userNotifications")
+  notificationsActor Notification[]            @relation("notificationActor")
+  conversations      ConversationParticipant[]
+  messages           Message[] // messages authored
+  reactions          Reaction[]
+  comments           Comment[]
+  callsAsCaller      CallSession[]             @relation("caller")
+  callsAsCallee      CallSession[]             @relation("callee")
+  uploadedMedia      Media[]                   @relation("uploadedBy")
+  refreshTokens      RefreshToken[]
+
+  // indexes
+  @@index([email])
+  @@index([username])
+}
+
+model Profile {
+  id          Int     @id @default(autoincrement())
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      Int     @unique
+  displayName String?
+  bio         String? @db.Text
+  website     String?
+  location    String?
+
+  avatarId Int?
+  avatar   Media? @relation("ProfileAvatar", fields: [avatarId], references: [id], onDelete: SetNull)
+
+  coverPhotoId Int?
+  coverPhoto   Media? @relation("ProfileCoverPhoto", fields: [coverPhotoId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Post {
+  id        Int         @id @default(autoincrement())
+  author    User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId  Int
+  content   String?     @db.Text
+  isDraft   Boolean     @default(false)
+  isPinned  Boolean     @default(false)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  deletedAt DateTime?
+  medias    PostMedia[]
+  reactions Reaction[]
+  comments  Comment[]
+
+  @@index([createdAt])
+  @@index([authorId, createdAt])
+}
+
+model Media {
+  id           Int      @id @default(autoincrement())
+  url          String
+  mimeType     String
+  size         Int?
+  uploadedById Int?
+  uploadedBy   User?    @relation("uploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+
+  // Usage relations
+  postUsages    PostMedia[]
+  messageUsages MessageMedia[]
+
+  // Profile relations
+  profileAvatars     Profile[] @relation("ProfileAvatar")
+  profileCoverPhotos Profile[] @relation("ProfileCoverPhoto")
+}
+
+model PostMedia {
+  id      Int     @id @default(autoincrement())
+  postId  Int
+  mediaId Int
+  order   Int     @default(0)
+  altText String?
+
+  post  Post  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, mediaId])
+  @@index([postId])
+  @@index([mediaId])
+}
+
+model Reaction {
+  id        Int          @id @default(autoincrement())
+  userId    Int
+  postId    Int
+  type      ReactionType @default(LIKE)
+  createdAt DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([postId])
+}
+
+model Comment {
+  id        Int       @id @default(autoincrement())
+  authorId  Int
+  postId    Int
+  parentId  Int?
+  content   String    @db.Text
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  author  User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  post    Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parent  Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies Comment[] @relation("CommentReplies")
+
+  @@index([postId, createdAt])
+}
+
+model FriendRequest {
+  id         Int      @id @default(autoincrement())
+  senderId   Int
+  receiverId Int
+  message    String?
+  status     String   @default("PENDING")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  sender   User @relation("sentRequests", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("receivedRequests", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, receiverId])
+  @@index([receiverId, status])
+}
+
+model Friendship {
+  id        Int      @id @default(autoincrement())
+  userAId   Int
+  userBId   Int
+  createdAt DateTime @default(now())
+
+  userA User @relation("userFriendshipA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB User @relation("userFriendshipB", fields: [userBId], references: [id], onDelete: Cascade)
+
+  @@unique([userAId, userBId])
+  @@index([userAId])
+  @@index([userBId])
+}
+
+model Notification {
+  id        Int              @id @default(autoincrement())
+  userId    Int
+  actorId   Int?
+  type      NotificationType
+  payload   Json
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user  User  @relation("userNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  actor User? @relation("notificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([userId, isRead])
+}
+
+model Conversation {
+  id            Int                       @id @default(autoincrement())
+  isGroup       Boolean                   @default(false)
+  title         String?
+  createdAt     DateTime                  @default(now())
+  participants  ConversationParticipant[]
+  messages      Message[]
+  lastMessageAt DateTime?
+  calls         CallSession[]
+}
+
+model ConversationParticipant {
+  id             Int       @id @default(autoincrement())
+  conversationId Int
+  userId         Int
+  joinedAt       DateTime  @default(now())
+  isMuted        Boolean   @default(false)
+  lastReadAt     DateTime?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id             Int         @id @default(autoincrement())
+  conversationId Int
+  senderId       Int
+  type           MessageType @default(TEXT)
+  content        String?     @db.Text
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  isEdited       Boolean     @default(false)
+  isDeleted      Boolean     @default(false)
+  status         String?
+
+  conversation Conversation   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User           @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  mediaUsages  MessageMedia[]
+
+  @@index([conversationId, createdAt])
+  @@index([senderId, createdAt])
+}
+
+model MessageMedia {
+  id        Int @id @default(autoincrement())
+  messageId Int
+  mediaId   Int
+  order     Int @default(0)
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  media   Media   @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+}
+
+model CallSession {
+  id             Int        @id @default(autoincrement())
+  callerId       Int?
+  calleeId       Int?
+  conversationId Int?
+  type           CallType
+  status         CallStatus
+  startedAt      DateTime?
+  endedAt        DateTime?
+  metadata       Json?
+  createdAt      DateTime   @default(now())
+
+  caller       User?         @relation("caller", fields: [callerId], references: [id], onDelete: SetNull)
+  callee       User?         @relation("callee", fields: [calleeId], references: [id], onDelete: SetNull)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
