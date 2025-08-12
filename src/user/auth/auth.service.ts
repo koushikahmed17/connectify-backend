@@ -68,4 +68,21 @@ export class AuthService {
     });
     return { message: 'Logout successful' };
   }
+  async getUserById(userId: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      return null;
+    }
+
+    return {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      createdAt: user.createdAt, // returning createdAt too
+      // add other safe fields as needed
+    };
+  }
 }
