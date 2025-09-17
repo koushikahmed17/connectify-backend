@@ -14,9 +14,23 @@ export class JwtAuthGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<Request>();
 
+    // Debug: Log request details
+    console.log('🔐 JWT Guard - Request URL:', request.url);
+    console.log('🔐 JWT Guard - Request headers:', request.headers);
+    console.log('🔐 JWT Guard - Request cookies:', request.cookies);
+    console.log(
+      '🔐 JWT Guard - Authorization header:',
+      request.headers.authorization,
+    );
+
     const token =
       this.extractTokenFromHeader(request) ||
       this.extractTokenFromCookie(request);
+
+    console.log(
+      '🔐 JWT Guard - Extracted token:',
+      token ? 'Token found' : 'No token',
+    );
 
     if (!token) {
       throw new UnauthorizedException('No token found');
