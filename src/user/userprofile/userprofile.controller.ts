@@ -32,11 +32,85 @@ export class UserProfileController {
     return this.profileService.getProfileByUserId(userId);
   }
 
+  @Post('test')
+  async testProfile(@CurrentUserId() userId: number, @Body() body: any) {
+    console.log('🧪 Test profile endpoint called');
+    console.log('📝 Body:', body);
+    console.log('👤 User ID:', userId);
+    return { message: 'Test successful', body, userId };
+  }
+
   // New endpoint to get user's uploaded files
   @Get('files')
   async getUserFiles(@CurrentUserId() userId: number) {
     console.log('📁 Getting uploaded files for userId:', userId);
     return this.mediaService.getUserFiles(userId);
+  }
+
+  // New endpoint to upload media files for posts
+  @Post('files')
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [{ name: 'file', maxCount: 10 }], // Allow up to 10 files
+      {
+        storage: memoryStorage(),
+        limits: {
+          fileSize: 20 * 1024 * 1024, // 20MB limit per file
+          files: 10,
+        },
+        fileFilter: (req, file, callback) => {
+          console.log('🔍 Media upload file filter:', {
+            fieldname: file.fieldname,
+            originalname: file.originalname,
+            mimetype: file.mimetype,
+          });
+
+          // Allow image and video files
+          if (
+            file.mimetype.match(/\/(jpg|jpeg|png|gif|webp|mp4|mov|avi|mkv)$/)
+          ) {
+            callback(null, true);
+          } else {
+            callback(
+              new BadRequestException(
+                'Only image and video files are allowed!',
+              ),
+              false,
+            );
+          }
+        },
+      },
+    ),
+  )
+  async uploadMedia(
+    @CurrentUserId() userId: number,
+    @UploadedFiles() files: { file?: Express.Multer.File[] },
+  ) {
+    console.log('📤 Media upload request for userId:', userId);
+    console.log('📂 Uploaded files:', files);
+
+    if (!files?.file || files.file.length === 0) {
+      throw new BadRequestException('No files uploaded');
+    }
+
+    // For single file upload, return the first file
+    const file = files.file[0];
+    console.log('➡️ Processing file:', file.originalname);
+
+    try {
+      const savedMedia = await this.mediaService.create(file, userId);
+      console.log('✅ Media saved with ID:', savedMedia.id);
+
+      return {
+        id: savedMedia.id,
+        url: savedMedia.url,
+        mimeType: savedMedia.mimeType,
+        size: savedMedia.size,
+      };
+    } catch (error) {
+      console.error('❌ Error uploading media:', error);
+      throw error;
+    }
   }
 
   @Post()
@@ -49,7 +123,7 @@ export class UserProfileController {
       {
         storage: memoryStorage(), // Explicitly use memory storage
         limits: {
-          fileSize: 5 * 1024 * 1024, // 5MB limit
+          fileSize: 20 * 1024 * 1024, // 20MB limit
           files: 2,
         },
         fileFilter: (req, file, callback) => {
@@ -79,7 +153,7 @@ export class UserProfileController {
       avatar?: Express.Multer.File[];
       coverPhoto?: Express.Multer.File[];
     },
-    @Body() dto: CreateProfileDto,
+    @Body() body: any, // accept raw form fields as strings
     @Req() req: any, // Add request object for debugging
   ) {
     console.log('🟢 Received Create Profile request for userId:', userId);
@@ -88,8 +162,8 @@ export class UserProfileController {
     console.log('📂 Uploaded files structure:', JSON.stringify(files, null, 2));
     console.log('📂 Files keys:', Object.keys(files || {}));
     console.log('📂 Files type:', typeof files);
-    console.log('📝 DTO:', dto);
-    console.log('📝 DTO type:', typeof dto);
+    console.log('📝 Body:', body);
+    console.log('📝 Body type:', typeof body);
     console.log('📂 Request body keys:', Object.keys(req.body || {}));
 
     // Debug: Log individual file arrays
@@ -99,6 +173,17 @@ export class UserProfileController {
     } else {
       console.log('❌ Files object is null/undefined');
     }
+
+    // The form fields arrive as strings (e.g. body.displayName is string)
+    // Convert fields to the expected DTO shape:
+    const dto: CreateProfileDto = {
+      displayName: body.displayName,
+      bio: body.bio,
+      website: body.website,
+      location: body.location,
+      avatarId: body.avatarId ? Number(body.avatarId) : undefined,
+      coverPhotoId: body.coverPhotoId ? Number(body.coverPhotoId) : undefined,
+    };
 
     let avatarId: number | undefined;
     let coverPhotoId: number | undefined;
@@ -167,7 +252,7 @@ export class UserProfileController {
       {
         storage: memoryStorage(), // Explicitly use memory storage
         limits: {
-          fileSize: 5 * 1024 * 1024, // 5MB limit
+          fileSize: 20 * 1024 * 1024, // 20MB limit
           files: 2,
         },
         fileFilter: (req, file, callback) => {

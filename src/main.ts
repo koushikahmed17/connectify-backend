@@ -16,6 +16,18 @@ async function bootstrap() {
 
   app.use(cookieParser());
 
+  // Increase body size limits for file uploads
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+  // Debug: Log all requests
+  app.use((req, res, next) => {
+    console.log('🌐 Request:', req.method, req.url);
+    console.log('🌐 Cookies:', req.cookies);
+    console.log('🌐 Headers:', req.headers);
+    next();
+  });
+
   // Serve static files from uploads folder
   app.use('/uploads', express.static(join(__dirname, '..', 'uploads')));
 

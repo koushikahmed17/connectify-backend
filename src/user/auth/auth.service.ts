@@ -40,6 +40,13 @@ export class AuthService {
   async login(dto: LoginDto, res: any) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
+      include: {
+        profile: {
+          include: {
+            avatar: true,
+          },
+        },
+      },
     });
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
@@ -56,8 +63,28 @@ export class AuthService {
       maxAge: 24 * 60 * 60 * 1000, // 1 day
     });
 
-    // Return token in response JSON as well
-    return res.json({ message: 'Login successful', access_token: token });
+    // Return user data with profile information
+    const userData = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      profile: user.profile
+        ? {
+            displayName: user.profile.displayName,
+            avatar: user.profile.avatar
+              ? {
+                  url: user.profile.avatar.url,
+                }
+              : undefined,
+          }
+        : undefined,
+    };
+
+    return res.json({
+      message: 'Login successful',
+      access_token: token,
+      user: userData,
+    });
   }
 
   async logout(res: Response) {
@@ -71,6 +98,13 @@ export class AuthService {
   async getUserById(userId: number) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
+      include: {
+        profile: {
+          include: {
+            avatar: true,
+          },
+        },
+      },
     });
 
     if (!user) {
@@ -81,8 +115,17 @@ export class AuthService {
       id: user.id,
       username: user.username,
       email: user.email,
-      createdAt: user.createdAt, // returning createdAt too
-      // add other safe fields as needed
+      createdAt: user.createdAt,
+      profile: user.profile
+        ? {
+            displayName: user.profile.displayName,
+            avatar: user.profile.avatar
+              ? {
+                  url: user.profile.avatar.url,
+                }
+              : undefined,
+          }
+        : undefined,
     };
   }
 }
