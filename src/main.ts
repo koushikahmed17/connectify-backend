@@ -1,36 +1,43 @@
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
-import cookieParser from 'cookie-parser';
-import * as express from 'express';
+import { HttpExceptionFilter } from './shared/exceptions/http-exception.filter';
+import { AppConfigService } from './shared/config/app-config.service';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  const appConfigService = app.get(AppConfigService);
+
+  // Global validation pipe
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
+
+  // Global exception filter
+  app.useGlobalFilters(new HttpExceptionFilter());
 
   // Enable CORS
   app.enableCors({
-    origin: 'http://localhost:5173', // frontend URL (Vite example)
+    origin: true,
     credentials: true,
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
   });
 
-  app.use(cookieParser());
-
-  // Increase body size limits for file uploads
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ limit: '50mb', extended: true }));
-
-  // Debug: Log all requests
-  app.use((req, res, next) => {
-    console.log('🌐 Request:', req.method, req.url);
-    console.log('🌐 Cookies:', req.cookies);
-    console.log('🌐 Headers:', req.headers);
-    next();
+  // Serve static files from uploads directory
+  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+    prefix: '/uploads/',
   });
 
-  // Serve static files from uploads folder
-  app.use('/uploads', express.static(join(__dirname, '..', 'uploads')));
+  const port = appConfigService.port;
+  await app.listen(port);
 
-  await app.listen(process.env.PORT ?? 3000);
+  console.log(`🚀 Application is running on: http://localhost:${port}`);
 }
+
 bootstrap();

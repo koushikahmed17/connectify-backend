@@ -27,6 +27,9 @@ enum NotificationType {
   NEW_COMMENT
   NEW_FRIEND_REQUEST
   FRIEND_REQUEST_ACCEPTED
+  NEW_FOLLOW_REQUEST
+  FOLLOW_REQUEST_ACCEPTED
+  FOLLOW_REQUEST_REJECTED
   NEW_MESSAGE
   MENTION
   FOLLOW
@@ -39,6 +42,7 @@ enum MessageType {
   AUDIO
   VIDEO
   SYSTEM
+  CALL_LOG
 }
 
 enum CallType {
@@ -59,6 +63,7 @@ model User {
   email           String    @unique
   username        String    @unique
   password        String
+  googleId        String?   @unique
   role            Role      @default(USER)
   isEmailVerified Boolean   @default(true)
   createdAt       DateTime  @default(now())
@@ -66,22 +71,23 @@ model User {
   deletedAt       DateTime? // soft delete
 
   // relations
-  profile            Profile?
-  posts              Post[]
-  sentFriendReqs     FriendRequest[]           @relation("sentRequests")
-  receivedFriendReqs FriendRequest[]           @relation("receivedRequests")
-  friendshipsAsUserA Friendship[]              @relation("userFriendshipA")
-  friendshipsAsUserB Friendship[]              @relation("userFriendshipB")
-  notifications      Notification[]            @relation("userNotifications")
-  notificationsActor Notification[]            @relation("notificationActor")
-  conversations      ConversationParticipant[]
-  messages           Message[] // messages authored
-  reactions          Reaction[]
-  comments           Comment[]
-  callsAsCaller      CallSession[]             @relation("caller")
-  callsAsCallee      CallSession[]             @relation("callee")
-  uploadedMedia      Media[]                   @relation("uploadedBy")
-  refreshTokens      RefreshToken[]
+  profile                Profile?
+  posts                  Post[]
+  sentFollowRequests     FollowRequest[]           @relation("sentFollowRequests")
+  receivedFollowRequests FollowRequest[]           @relation("receivedFollowRequests")
+  followerConnections    Connection[]              @relation("followerConnections")
+  followingConnections   Connection[]              @relation("followingConnections")
+  notifications          Notification[]            @relation("userNotifications")
+  notificationsActor     Notification[]            @relation("notificationActor")
+  conversations          ConversationParticipant[]
+  messages               Message[] // messages authored
+  reactions              Reaction[]
+  comments               Comment[]
+  commentReactions       CommentReaction[]
+  callsAsCaller          CallSession[]             @relation("caller")
+  callsAsCallee          CallSession[]             @relation("callee")
+  uploadedMedia          Media[]                   @relation("uploadedBy")
+  refreshTokens          RefreshToken[]
 
   // indexes
   @@index([email])
@@ -182,42 +188,56 @@ model Comment {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  author  User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  post    Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
-  parent  Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies Comment[] @relation("CommentReplies")
+  author    User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  post      Post              @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parent    Comment?          @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[]         @relation("CommentReplies")
+  reactions CommentReaction[]
 
   @@index([postId, createdAt])
 }
 
-model FriendRequest {
-  id         Int      @id @default(autoincrement())
-  senderId   Int
-  receiverId Int
-  message    String?
-  status     String   @default("PENDING")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+model CommentReaction {
+  id        Int          @id @default(autoincrement())
+  userId    Int
+  commentId Int
+  type      ReactionType @default(LIKE)
+  createdAt DateTime     @default(now())
 
-  sender   User @relation("sentRequests", fields: [senderId], references: [id], onDelete: Cascade)
-  receiver User @relation("receivedRequests", fields: [receiverId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
 
-  @@unique([senderId, receiverId])
-  @@index([receiverId, status])
+  @@unique([userId, commentId])
 }
 
-model Friendship {
-  id        Int      @id @default(autoincrement())
-  userAId   Int
-  userBId   Int
-  createdAt DateTime @default(now())
+model FollowRequest {
+  id          Int      @id @default(autoincrement())
+  followerId  Int
+  followingId Int
+  status      String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  userA User @relation("userFriendshipA", fields: [userAId], references: [id], onDelete: Cascade)
-  userB User @relation("userFriendshipB", fields: [userBId], references: [id], onDelete: Cascade)
+  follower  User @relation("sentFollowRequests", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("receivedFollowRequests", fields: [followingId], references: [id], onDelete: Cascade)
 
-  @@unique([userAId, userBId])
-  @@index([userAId])
-  @@index([userBId])
+  @@unique([followerId, followingId])
+  @@index([followingId, status])
+  @@index([followerId, status])
+}
+
+model Connection {
+  id          Int      @id @default(autoincrement())
+  followerId  Int
+  followingId Int
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("followerConnections", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("followingConnections", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
 }
 
 model Notification {
@@ -267,6 +287,7 @@ model Message {
   senderId       Int
   type           MessageType @default(TEXT)
   content        String?     @db.Text
+  callData       String?     @db.Text
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   isEdited       Boolean     @default(false)

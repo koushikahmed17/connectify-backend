@@ -1,98 +1,192 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Connectify Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A modern, scalable social media backend built with NestJS, Prisma, and PostgreSQL.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## 🏗️ Architecture
 
-## Description
+This project follows clean architecture principles with a well-structured folder organization:
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
-
-```bash
-$ npm install
+```
+src/
+├── shared/                 # Shared modules and utilities
+│   ├── config/            # Configuration services
+│   ├── database/          # Database connection and services
+│   ├── decorators/        # Custom decorators
+│   ├── dto/              # Shared DTOs
+│   ├── exceptions/       # Custom exceptions and filters
+│   └── guards/           # Authentication and authorization guards
+├── modules/              # Feature modules
+│   ├── auth/            # Authentication module
+│   ├── user-profile/    # User profile management
+│   ├── posts/           # Posts and content management
+│   ├── notifications/   # Notification system
+│   └── media/           # Media file handling
+└── main.ts              # Application entry point
 ```
 
-## Compile and run the project
+## 🚀 Features
+
+- **Authentication & Authorization**: JWT-based auth with refresh tokens
+- **User Management**: Complete user profile system with avatars and cover photos
+- **Posts System**: Create, read, update, delete posts with media support
+- **Notifications**: Real-time notification system
+- **Media Handling**: File upload and management
+- **Validation**: Comprehensive input validation with class-validator
+- **Error Handling**: Global exception filters and custom business exceptions
+- **Configuration**: Environment-based configuration management
+- **Database**: PostgreSQL with Prisma ORM
+
+## 🛠️ Tech Stack
+
+- **Framework**: NestJS
+- **Database**: PostgreSQL
+- **ORM**: Prisma
+- **Authentication**: JWT
+- **Validation**: class-validator, class-transformer
+- **File Upload**: Multer
+- **Password Hashing**: bcrypt
+
+## 📦 Installation
+
+1. Clone the repository
+2. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+3. Set up environment variables:
+
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
+
+4. Set up the database:
+
+   ```bash
+   npx prisma migrate dev
+   npx prisma generate
+   ```
+
+5. Start the development server:
+   ```bash
+   npm run start:dev
+   ```
+
+## 🔧 Configuration
+
+### Environment Variables
+
+- `DATABASE_URL`: PostgreSQL connection string
+- `JWT_SECRET`: Secret key for JWT tokens
+- `JWT_EXPIRES_IN`: JWT token expiration time
+- `PORT`: Application port (default: 3000)
+- `NODE_ENV`: Environment (development/production)
+
+## 📚 API Endpoints
+
+### Authentication
+
+- `POST /auth/register` - User registration
+- `POST /auth/login` - User login
+- `POST /auth/logout` - User logout
+- `GET /auth/me` - Get current user
+
+### User Profile
+
+- `GET /user/profile` - Get user profile
+- `POST /user/profile` - Create user profile
+- `PUT /user/profile` - Update user profile
+- `GET /user/profile/files` - Get user's uploaded files
+- `POST /user/profile/files` - Upload media files
+
+### Posts
+
+- `GET /posts` - Get all posts (paginated)
+- `POST /posts` - Create a new post
+- `GET /posts/:id` - Get post by ID
+- `PUT /posts/:id` - Update post
+- `DELETE /posts/:id` - Delete post
+- `GET /posts/user/:userId` - Get user's posts
+- `GET /posts/my-posts` - Get current user's posts
+- `POST /posts/:id/like` - Toggle like on post
+- `POST /posts/:id/comment` - Add comment to post
+- `GET /posts/:id/comments` - Get post comments
+
+### Notifications
+
+- `GET /notifications` - Get user notifications
+- `GET /notifications/unread-count` - Get unread count
+- `PUT /notifications/:id/read` - Mark notification as read
+- `PUT /notifications/mark-all-read` - Mark all as read
+- `DELETE /notifications/:id` - Delete notification
+
+### Media
+
+- `GET /media/my-files` - Get user's media files
+- `DELETE /media/:id` - Delete media file
+
+## 🏛️ Best Practices Implemented
+
+1. **Clean Architecture**: Separation of concerns with clear module boundaries
+2. **Dependency Injection**: Proper use of NestJS DI container
+3. **Validation**: Comprehensive input validation with DTOs
+4. **Error Handling**: Global exception filters and custom business exceptions
+5. **Configuration**: Environment-based configuration management
+6. **Security**: JWT authentication, password hashing, input sanitization
+7. **Database**: Proper ORM usage with Prisma
+8. **Code Organization**: Logical folder structure and naming conventions
+9. **Type Safety**: Full TypeScript implementation
+10. **Documentation**: Comprehensive code documentation
+
+## 🧪 Testing
 
 ```bash
-# development
-$ npm run start
+# Unit tests
+npm run test
 
-# watch mode
-$ npm run start:dev
+# E2E tests
+npm run test:e2e
 
-# production mode
-$ npm run start:prod
+# Test coverage
+npm run test:cov
 ```
 
-## Run tests
+## 📝 Database Schema
 
-```bash
-# unit tests
-$ npm run test
+The application uses Prisma for database management. Key models include:
 
-# e2e tests
-$ npm run test:e2e
+- **User**: User accounts and authentication
+- **Profile**: User profile information
+- **Post**: Social media posts
+- **Media**: File uploads and media management
+- **Notification**: User notifications
+- **Reaction**: Post likes and reactions
+- **Comment**: Post comments
 
-# test coverage
-$ npm run test:cov
-```
+## 🔒 Security Features
 
-## Deployment
+- JWT-based authentication
+- Password hashing with bcrypt
+- Input validation and sanitization
+- CORS configuration
+- File upload restrictions
+- SQL injection prevention (Prisma ORM)
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+## 🚀 Deployment
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+1. Build the application:
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+   ```bash
+   npm run build
+   ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+2. Start in production:
+   ```bash
+   npm run start:prod
+   ```
 
-## Resources
+## 📄 License
 
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+This project is licensed under the MIT License.
