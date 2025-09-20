@@ -16,3 +16,4 @@ export class CreatePostDto {
   @IsNumber({}, { each: true })
   mediaIds?: number[];
 }
+
